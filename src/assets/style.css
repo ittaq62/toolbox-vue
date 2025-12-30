@@ -1,0 +1,138 @@
+/* ==== FontAwesome pour les icônes dans index.html ==== */
+/* <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"> */
+
+/* ========== Variables & reset ========== */
+:root {
+  --sidebar-w: 220px; /* largeur par défaut */
+  --bg: #101014;
+  --panel: #1a1a26;
+  --panel-2: #16161d;
+  --panel-3: #1f1f2a;
+  --border: #2c2c3b;
+  --accent: #ff4d8e;
+  --text: #ffffff;
+}
+
+* { box-sizing: border-box; }
+html, body, #app { height: 100%; }
+body {
+  margin: 0;
+  font-family: 'Segoe UI', sans-serif;
+  background-color: var(--bg);
+  color: var(--text);
+  overflow: hidden; /* évite les scrollbars horizontales */
+}
+
+/* Quand la layout a la classe .collapsed, on réduit la sidebar */
+.layout { --sidebar-w: 220px; }
+.layout.collapsed { --sidebar-w: 60px; }
+
+/* ========== Sidebar ========== */
+.sidebar {
+  width: var(--sidebar-w);
+  background-color: var(--panel-2);
+  overflow: hidden;
+  height: 100vh;
+  position: fixed; top: 0; left: 0;
+  display: flex; flex-direction: column;
+  transition: width .25s ease;
+  border-right: 1px solid var(--border);
+}
+
+.sidebar-top {
+  height: 64px;
+  display: flex; align-items: center; justify-content: center;
+  background-color: var(--panel-3);
+  border-bottom: 1px solid var(--border);
+}
+.toggle-btn {
+  cursor: pointer; color: var(--text); font-size: 1.2rem;
+  background: none; border: 0;
+}
+
+.nav {
+  display: flex; flex-direction: column;
+  padding: 0; margin: 0; list-style: none;
+  flex: 1;
+}
+.nav-item {
+  display: flex; align-items: center; gap: 1rem;
+  padding: 1rem;
+  color: var(--text); text-decoration: none;
+  transition: background .2s, transform .2s;
+}
+.nav-item:hover { background-color: #242437; transform: scale(1.02); }
+.nav-item.router-link-active { background-color: #242437; }
+.nav-item .text { white-space: nowrap; transition: opacity .25s; }
+.layout.collapsed .nav-item .text { opacity: 0; pointer-events: none; }
+
+/* ========== Main content ========== */
+/* Astuce clé: on calcule la largeur en fonction de la sidebar */
+.main-content {
+  margin-left: var(--sidebar-w);
+  width: calc(100vw - var(--sidebar-w));
+  height: 100vh;
+  display: flex; flex-direction: column;
+  transition: margin-left .25s ease, width .25s ease;
+}
+
+.topbar {
+  background-color: var(--panel-3);
+  height: 64px;
+  display: flex; align-items: center;
+  padding: 0 2rem;
+  border-bottom: 1px solid var(--border);
+  position: sticky; top: 0;
+  z-index: 10;
+  /* plus de gap à droite, elle s'étend sur toute la largeur calculée */
+}
+
+.content {
+  padding: 2rem;
+  overflow: auto;
+  height: calc(100vh - 64px);
+}
+
+.box {
+  background-color: var(--panel);
+  border-radius: 10px;
+  padding: 2rem;
+  box-shadow: 0 4px 8px rgba(0,0,0,.3);
+}
+
+/* ========== Styles de la roue (inchangés) ========== */
+.wheel-page{
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:16px; width:100%;
+}
+.wheel-wrapper{position:relative; width:550px; height:550px; margin: 0 auto;}
+canvas{
+  width:100%; height:100%;
+  border-radius:50%;
+  background:#162130;
+  box-shadow:
+    0 0 0 4px #203048 inset,
+    0 0 0 10px #293d5a,
+    0 8px 25px rgba(0,0,0,.6);
+}
+.pointer{
+  position:absolute; left:50%; top:-18px; transform:translateX(-50%);
+  width:0; height:0;
+  border-left:18px solid transparent;
+  border-right:18px solid transparent;
+  border-top:30px solid #ff4d8e;
+  filter:drop-shadow(0 0 6px #ff4d8eaa);
+  z-index:10;
+}
+.controls{
+  display:flex; gap:12px; align-items:center; flex-wrap:wrap; justify-content:center;
+}
+button{
+  padding:12px 32px; font-size:18px; border:0; border-radius:8px;
+  background:var(--accent); color:#fff; cursor:pointer; transition:background .2s;
+}
+button:hover{ background:#ff3377; }
+button:disabled{ opacity:.5; cursor:not-allowed; }
+.steam-buttons{ display:flex; gap:8px; flex-wrap:wrap; }
+.steamBtn.active{ outline:2px solid #fff; }
+#result{ font-size:24px; font-weight:600; text-align:center; }
