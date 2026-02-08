@@ -1,18 +1,11 @@
 <script setup>
+import { computed } from 'vue'
 import Wheel from '@/components/Wheel.vue'
+import { wheelStore } from '@/stores/wheel.js'
 
-// Tes SteamIDs (ordre important ↔ labels)
-const steamIds = [
-  '76561199055485964',
-  '76561199652580615',
-  '76561199065020540'
-]
-
-// Libellés souhaités, dans le même ordre que steamIds
-const labels = ['Dublatic', 'Livies', 'Henebus']
-
-// API via proxy Vite vers ton PHP Docker/XAMPP
-const apiUrl = '/api/get_inventory.php'
+// Dérivés réactifs du store → si Settings modifie le store, Tool se met à jour
+const steamIds = computed(() => wheelStore.inventories.map(inv => inv.steamId))
+const labels   = computed(() => wheelStore.inventories.map(inv => inv.label))
 </script>
 
 <template>
@@ -20,7 +13,6 @@ const apiUrl = '/api/get_inventory.php'
     <h2>Bienvenue sur l'outil Roue</h2>
     <p style="margin-bottom:16px">Ici se trouve la roue et ses paramètres.</p>
 
-    <!-- On passe les labels au composant -->
-    <Wheel :steam-ids="steamIds" :api-url="apiUrl" :labels="labels" />
+    <Wheel :steam-ids="steamIds" :api-url="wheelStore.apiUrl" :labels="labels" />
   </div>
 </template>

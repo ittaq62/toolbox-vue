@@ -4,7 +4,6 @@ import { onMounted, onBeforeUnmount, ref, watch } from 'vue'
 const props = defineProps({
   steamIds: { type: Array, required: true },
   apiUrl:   { type: String, default: '/api/get_inventory.php' },
-  // Nouvel input: libellés personnalisés (même ordre que steamIds)
   labels:   { type: Array, default: () => [] }
 })
 
@@ -14,6 +13,7 @@ let ctx = null
 const resultText = ref('—')
 const rotation = ref(0)
 const spinning = ref(false)
+const loading  = ref(false)
 
 const pattern = ref([])   // noms répétés selon amount
 const colors  = ref({})   // nom -> couleur
@@ -42,8 +42,7 @@ function setupHiDPI() {
   dpr = window.devicePixelRatio || 1
   canvas.width  = size * dpr
   canvas.height = size * dpr
-  canvas.style.width  = size + 'px'
-  canvas.style.height = size + 'px'
+  // On ne force plus la taille inline → CSS gère le responsive
   ctx = canvas.getContext('2d')
   ctx.setTransform(1, 0, 0, 1, 0, 0)
   ctx.scale(dpr, dpr)
@@ -107,13 +106,15 @@ function showResult(){
   resultText.value = pattern.value[index]
 }
 
+// ✅ FIX : interpolation start → target au lieu de 0 → target
 function spin(){
   if (spinning.value || pattern.value.length === 0) return
   spinning.value = true
   resultText.value = '—'
 
+  const start = rotation.value
   const extraDeg = Math.random() * 360
-  const target = rotation.value
+  const target = start
     + (Math.PI * 2 * (5 + Math.random() * 4))
     + (extraDeg * Math.PI / 180)
 
@@ -123,7 +124,7 @@ function spin(){
   const animate = (t) => {
     const p = Math.min((t - startT) / DUR, 1)
     const ease = 1 - Math.pow(1 - p, 3) // cubic ease-out
-    rotation.value = target * ease
+    rotation.value = start + (target - start) * ease
     drawWheel(rotation.value)
     if (p < 1) {
       rafId = requestAnimationFrame(animate)
@@ -136,44 +137,39 @@ function spin(){
   rafId = requestAnimationFrame(animate)
 }
 
+// ✅ FIX : logique de parsing extraite pour éviter la duplication
+function loadInventory(data) {
+  pattern.value = []
+  const newNames = []
+  data.forEach(item => {
+    if (!colors.value[item.name]) newNames.push(item.name)
+    for (let i = 0; i < (item.amount || 0); i++) {
+      pattern.value.push(item.name)
+    }
+  })
+  generateColors(newNames)
+  shufflePattern()
+  drawWheel()
+}
+
 async function fetchInventory(){
+  loading.value = true
   try {
     const url = `${props.apiUrl}?steamid=${encodeURIComponent(currentSteamId.value)}`
     const r = await fetch(url)
     const data = await r.json()
     if (!Array.isArray(data)) throw new Error('format inattendu')
-
-    pattern.value = []
-    const newNames = []
-
-    data.forEach(item => {
-      if (!colors.value[item.name]) newNames.push(item.name)
-      for (let i = 0; i < (item.amount || 0); i++) {
-        pattern.value.push(item.name)
-      }
-    })
-
-    generateColors(newNames)
-    shufflePattern()
-    drawWheel()
+    loadInventory(data)
   } catch (e) {
     console.warn('fetchInventory échoué:', e)
-    // fallback facultatif si tu utilises /public/mock_inventory.json
+    // fallback facultatif via /public/mock_inventory.json
     try {
       const r2 = await fetch('/mock_inventory.json')
       const d2 = await r2.json()
-      pattern.value = []
-      const newNames = []
-      d2.forEach(item => {
-        if (!colors.value[item.name]) newNames.push(item.name)
-        for (let i = 0; i < (item.amount || 0); i++) {
-          pattern.value.push(item.name)
-        }
-      })
-      generateColors(newNames)
-      shufflePattern()
-      drawWheel()
+      loadInventory(d2)
     } catch {/* ignore */}
+  } finally {
+    loading.value = false
   }
 }
 
@@ -183,7 +179,7 @@ function switchId(id){
   rotation.value = 0
 }
 
-// ↴ Utilise les labels passés par le parent si présents, sinon "Inventaire n"
+// Utilise les labels passés par le parent si présents, sinon "Inventaire n"
 function labelFor(id){
   const idx = props.steamIds.indexOf(id)
   if (idx >= 0 && props.labels[idx]) return props.labels[idx]
@@ -213,13 +209,17 @@ watch(currentSteamId, () => fetchInventory())
 <template>
   <div class="wheel-page">
     <div class="wheel-wrapper">
-      <canvas ref="canvasRef" :width="size" :height="size"></canvas>
+      <canvas ref="canvasRef" aria-label="Roue de la fortune"></canvas>
       <div class="pointer"></div>
+      <!-- ✅ Indicateur de chargement -->
+      <div v-if="loading" class="wheel-loading">
+        <i class="fas fa-spinner fa-spin"></i> Chargement…
+      </div>
     </div>
 
     <div class="controls">
-      <button @click="spin" :disabled="spinning || !pattern.length">Lancer</button>
-      <button @click="shufflePattern" :disabled="!pattern.length">Mélanger</button>
+      <button @click="spin" :disabled="spinning || loading || !pattern.length">Lancer</button>
+      <button @click="shufflePattern" :disabled="loading || !pattern.length">Mélanger</button>
 
       <div class="steam-buttons">
         <button
@@ -227,6 +227,7 @@ watch(currentSteamId, () => fetchInventory())
           :key="id"
           class="steamBtn"
           :class="{ active: id === currentSteamId }"
+          :title="'Charger l\'inventaire : ' + labelFor(id)"
           @click="switchId(id)"
         >
           {{ labelFor(id) }}
@@ -234,6 +235,6 @@ watch(currentSteamId, () => fetchInventory())
       </div>
     </div>
 
-    <div id="result">Résultat : {{ resultText }}</div>
+    <div class="wheel-result">Résultat : {{ resultText }}</div>
   </div>
 </template>

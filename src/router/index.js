@@ -1,14 +1,10 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import Home from '@/pages/Home.vue'
-import Tool from '@/pages/Tool.vue'
-import Stats from '@/pages/Stats.vue'
-import Settings from '@/pages/Settings.vue'
 
 const routes = [
-  { path: '/',         name: 'home',     component: Home,     meta: { title: "Accueil" } },
-  { path: '/outil',    name: 'tool',     component: Tool,     meta: { title: "Outil" } },
-  { path: '/stats',    name: 'stats',    component: Stats,    meta: { title: "Stats" } },
-  { path: '/settings', name: 'settings', component: Settings, meta: { title: "Paramètres" } },
+  { path: '/',         name: 'home',     component: () => import('@/pages/Home.vue'),     meta: { title: "Accueil" } },
+  { path: '/outil',    name: 'tool',     component: () => import('@/pages/Tool.vue'),     meta: { title: "Outil" } },
+  { path: '/stats',    name: 'stats',    component: () => import('@/pages/Stats.vue'),    meta: { title: "Stats" } },
+  { path: '/settings', name: 'settings', component: () => import('@/pages/Settings.vue'), meta: { title: "Paramètres" } },
 ]
 
 const router = createRouter({
