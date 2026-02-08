@@ -157,8 +157,16 @@ canvas{
 .controls button:hover{ background:#ff3377; }
 .controls button:disabled{ opacity:.5; cursor:not-allowed; }
 
-.steam-buttons{ display:flex; gap:8px; flex-wrap:wrap; justify-content:center; }
-.steamBtn.active{ outline:2px solid #fff; }
+.steam-select{
+  padding:10px 16px; font-size:16px;
+  background:var(--panel-3); color:var(--text);
+  border:1px solid var(--border); border-radius:8px;
+  cursor:pointer; outline:none;
+  transition:border-color .2s;
+  appearance:auto;
+}
+.steam-select:focus{ border-color:var(--accent); }
+.steam-select:disabled{ opacity:.5; cursor:not-allowed; }
 .wheel-result{
   font-size:clamp(18px, 3vw, 24px); font-weight:600; text-align:center;
   transition: color .4s;

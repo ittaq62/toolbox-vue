@@ -338,18 +338,16 @@ watch(currentSteamId, () => fetchInventory())
         <i class="fas fa-sync-alt"></i>
       </button>
 
-      <div class="steam-buttons">
-        <button
-          v-for="id in steamIds"
-          :key="id"
-          class="steamBtn"
-          :class="{ active: id === currentSteamId }"
-          :title="'Charger l\'inventaire : ' + labelFor(id)"
-          @click="switchId(id)"
-        >
+      <select
+        class="steam-select"
+        :value="currentSteamId"
+        @change="switchId($event.target.value)"
+        :disabled="spinning"
+      >
+        <option v-for="id in steamIds" :key="id" :value="id">
           {{ labelFor(id) }}
-        </button>
-      </div>
+        </option>
+      </select>
     </div>
 
     <div
