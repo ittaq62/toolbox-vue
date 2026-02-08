@@ -14,6 +14,8 @@ const resultText = ref('—')
 const rotation = ref(0)
 const spinning = ref(false)
 const loading  = ref(false)
+const showWin  = ref(false)
+const winColor = ref('')
 
 const pattern = ref([])   // noms répétés selon amount
 const colors  = ref({})   // nom -> couleur
@@ -22,6 +24,68 @@ const currentSteamId = ref(props.steamIds?.[0] ?? '')
 const size = 550
 let dpr = 1
 let rafId = 0
+
+// 🔊 Son de tick — Web Audio API (zéro fichier externe)
+let audioCtx = null
+let lastTickTime = 0
+const MIN_TICK_INTERVAL = 45 // ms minimum entre deux ticks
+
+function initAudio() {
+  if (audioCtx) return
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)()
+}
+
+function playTick() {
+  try {
+    if (!audioCtx) return
+    // 🔊 Throttle : évite le spam quand il y a beaucoup de secteurs
+    const now = performance.now()
+    if (now - lastTickTime < MIN_TICK_INTERVAL) return
+    lastTickTime = now
+
+    if (audioCtx.state === 'suspended') audioCtx.resume()
+    const t = audioCtx.currentTime
+
+    const osc  = audioCtx.createOscillator()
+    const gain = audioCtx.createGain()
+    osc.connect(gain)
+    gain.connect(audioCtx.destination)
+
+    // "Clac" sec de languette
+    osc.type = 'square'
+    osc.frequency.setValueAtTime(2200, t)
+    osc.frequency.exponentialRampToValueAtTime(400, t + 0.04)
+
+    gain.gain.setValueAtTime(0.4, t)
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.08)
+
+    osc.start(t)
+    osc.stop(t + 0.08)
+  } catch { /* fail silently */ }
+}
+
+// 🎉 Son de victoire (petit jingle montant)
+function playWinSound() {
+  try {
+    if (!audioCtx) return
+    if (audioCtx.state === 'suspended') audioCtx.resume()
+    const t = audioCtx.currentTime
+    const notes = [523, 659, 784, 1047] // Do Mi Sol Do (octave)
+    notes.forEach((freq, i) => {
+      const osc  = audioCtx.createOscillator()
+      const gain = audioCtx.createGain()
+      osc.connect(gain)
+      gain.connect(audioCtx.destination)
+      osc.type = 'sine'
+      osc.frequency.setValueAtTime(freq, t + i * 0.12)
+      gain.gain.setValueAtTime(0, t)
+      gain.gain.linearRampToValueAtTime(0.3, t + i * 0.12)
+      gain.gain.exponentialRampToValueAtTime(0.001, t + i * 0.12 + 0.25)
+      osc.start(t + i * 0.12)
+      osc.stop(t + i * 0.12 + 0.25)
+    })
+  } catch { /* fail silently */ }
+}
 
 const palette = [
   '#49C9B3', '#FFD700', '#AE81FF', '#00FF88', '#FF934F',
@@ -103,7 +167,14 @@ function showResult(){
   const angleUnderPointer =
     (2 * Math.PI - ((rotation.value + Math.PI/2) % (2 * Math.PI))) % (2 * Math.PI)
   const index = Math.floor(angleUnderPointer / ARC) % N
-  resultText.value = pattern.value[index]
+  const winner = pattern.value[index]
+  resultText.value = winner
+  winColor.value = colors.value[winner] || '#ff4d8e'
+
+  // 🎉 Animation de victoire
+  playWinSound()
+  showWin.value = true
+  setTimeout(() => { showWin.value = false }, 2500)
 }
 
 // ✅ FIX : interpolation start → target au lieu de 0 → target
@@ -112,11 +183,20 @@ function spin(){
   spinning.value = true
   resultText.value = '—'
 
+  // Init audio au clic utilisateur (obligatoire pour Chrome autoplay policy)
+  initAudio()
+
+  const N = pattern.value.length
+  const ARC = Math.PI * 2 / N
+
   const start = rotation.value
   const extraDeg = Math.random() * 360
   const target = start
     + (Math.PI * 2 * (5 + Math.random() * 4))
     + (extraDeg * Math.PI / 180)
+
+  // 🔊 Compteur simple : combien de bordures de secteurs franchies depuis le départ
+  let lastCrossing = Math.floor(start / ARC)
 
   const startT = performance.now()
   const DUR = 4500
@@ -126,6 +206,14 @@ function spin(){
     const ease = 1 - Math.pow(1 - p, 3) // cubic ease-out
     rotation.value = start + (target - start) * ease
     drawWheel(rotation.value)
+
+    // 🔊 Tick à chaque fois qu'on franchit une bordure de secteur
+    const currentCrossing = Math.floor(rotation.value / ARC)
+    if (currentCrossing !== lastCrossing) {
+      playTick()
+      lastCrossing = currentCrossing
+    }
+
     if (p < 1) {
       rafId = requestAnimationFrame(animate)
     } else {
@@ -201,6 +289,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
   if (rafId) cancelAnimationFrame(rafId)
   window.removeEventListener('resize', onResize)
+  if (audioCtx) audioCtx.close()
 })
 
 watch(currentSteamId, () => fetchInventory())
@@ -235,6 +324,19 @@ watch(currentSteamId, () => fetchInventory())
       </div>
     </div>
 
-    <div class="wheel-result">Résultat : {{ resultText }}</div>
+    <div
+      class="wheel-result"
+      :class="{ 'wheel-result--win': showWin }"
+      :style="showWin ? { '--win-color': winColor } : {}"
+    >
+      <template v-if="showWin">
+        <span class="win-icon">🎉</span>
+        <span class="win-text">{{ resultText }}</span>
+        <span class="win-icon">🎉</span>
+      </template>
+      <template v-else>
+        Résultat : {{ resultText }}
+      </template>
+    </div>
   </div>
 </template>

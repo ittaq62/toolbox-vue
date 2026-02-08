@@ -160,6 +160,34 @@ canvas{
 .steamBtn.active{ outline:2px solid #fff; }
 .wheel-result{ font-size:24px; font-weight:600; text-align:center; }
 
+/* 🎉 Animation de victoire */
+.wheel-result--win{
+  font-size:32px;
+  color: var(--win-color, #ff4d8e);
+  text-shadow: 0 0 20px var(--win-color, #ff4d8e), 0 0 40px var(--win-color, #ff4d8e);
+  animation: winPulse .6s ease-in-out 3;
+  display:flex; align-items:center; justify-content:center; gap:12px;
+}
+.win-text{
+  animation: winScale .5s cubic-bezier(.17,.67,.29,1.4) forwards;
+}
+.win-icon{
+  font-size:28px;
+  animation: winBounce .6s ease-in-out infinite alternate;
+}
+@keyframes winPulse{
+  0%, 100%{ opacity:1; }
+  50%{ opacity:.6; }
+}
+@keyframes winScale{
+  0%{ transform:scale(0); opacity:0; }
+  100%{ transform:scale(1); opacity:1; }
+}
+@keyframes winBounce{
+  0%{ transform:translateY(0); }
+  100%{ transform:translateY(-8px); }
+}
+
 /* ========== Settings page ========== */
 .settings-page p { color: #aaa; }
 
