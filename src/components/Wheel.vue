@@ -16,6 +16,7 @@ const spinning = ref(false)
 const loading  = ref(false)
 const showWin  = ref(false)
 const winColor = ref('')
+const winIndex = ref(-1)   // index du gagnant dans pattern
 
 const pattern = ref([])   // noms répétés selon amount
 const colors  = ref({})   // nom -> couleur
@@ -169,6 +170,7 @@ function showResult(){
   const index = Math.floor(angleUnderPointer / ARC) % N
   const winner = pattern.value[index]
   resultText.value = winner
+  winIndex.value = index
   winColor.value = colors.value[winner] || '#ff4d8e'
 
   // 🎉 Animation de victoire
@@ -177,11 +179,34 @@ function showResult(){
   setTimeout(() => { showWin.value = false }, 2500)
 }
 
+// 🗑️ Supprimer l'élément tiré de la roue
+function removeWinner() {
+  if (winIndex.value < 0 || spinning.value) return
+  pattern.value.splice(winIndex.value, 1)
+  winIndex.value = -1
+  resultText.value = '—'
+  winColor.value = ''
+  rotation.value = 0
+  drawWheel()
+}
+
+// 🔄 Recharger l'inventaire depuis le PHP
+function refresh() {
+  if (spinning.value) return
+  winIndex.value = -1
+  resultText.value = '—'
+  winColor.value = ''
+  rotation.value = 0
+  fetchInventory()
+}
+
 // ✅ FIX : interpolation start → target au lieu de 0 → target
 function spin(){
   if (spinning.value || pattern.value.length === 0) return
   spinning.value = true
   resultText.value = '—'
+  winIndex.value = -1
+  winColor.value = ''
 
   // Init audio au clic utilisateur (obligatoire pour Chrome autoplay policy)
   initAudio()
@@ -309,6 +334,9 @@ watch(currentSteamId, () => fetchInventory())
     <div class="controls">
       <button @click="spin" :disabled="spinning || loading || !pattern.length">Lancer</button>
       <button @click="shufflePattern" :disabled="loading || !pattern.length">Mélanger</button>
+      <button @click="refresh" :disabled="spinning || loading" title="Recharger l'inventaire">
+        <i class="fas fa-sync-alt"></i>
+      </button>
 
       <div class="steam-buttons">
         <button
@@ -326,8 +354,8 @@ watch(currentSteamId, () => fetchInventory())
 
     <div
       class="wheel-result"
-      :class="{ 'wheel-result--win': showWin }"
-      :style="showWin ? { '--win-color': winColor } : {}"
+      :class="{ 'wheel-result--win': showWin, 'wheel-result--has-winner': winColor && !showWin }"
+      :style="winColor ? { '--win-color': winColor } : {}"
     >
       <template v-if="showWin">
         <span class="win-icon">🎉</span>
@@ -338,5 +366,13 @@ watch(currentSteamId, () => fetchInventory())
         Résultat : {{ resultText }}
       </template>
     </div>
+
+    <button
+      v-if="winIndex >= 0 && !spinning"
+      class="remove-winner-btn"
+      @click="removeWinner"
+    >
+      <i class="fas fa-trash-alt"></i> Retirer « {{ resultText }} »
+    </button>
   </div>
 </template>

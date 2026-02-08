@@ -10,9 +10,6 @@ const labels   = computed(() => wheelStore.inventories.map(inv => inv.label))
 
 <template>
   <div class="box">
-    <h2>Bienvenue sur l'outil Roue</h2>
-    <p style="margin-bottom:16px">Ici se trouve la roue et ses paramètres.</p>
-
     <Wheel :steam-ids="steamIds" :api-url="wheelStore.apiUrl" :labels="labels" />
   </div>
 </template>

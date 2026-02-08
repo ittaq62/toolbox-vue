@@ -88,30 +88,30 @@ body {
 }
 
 .content {
-  padding: 2rem;
-  overflow: auto;
+  padding: 1.5rem;
+  overflow-y: auto;
   height: calc(100vh - 64px);
 }
 
 .box {
   background-color: var(--panel);
   border-radius: 10px;
-  padding: 2rem;
+  padding: 1.5rem;
   box-shadow: 0 4px 8px rgba(0,0,0,.3);
 }
 
 /* ========== Styles de la roue ========== */
 .wheel-page{
-  display:flex; flex-direction:column; align-items:center; justify-content:center;
-  gap:16px; width:100%;
+  display:flex; flex-direction:column; align-items:center; justify-content:flex-start;
+  gap:12px; width:100%;
 }
 
-/* ✅ FIX responsive : max-width au lieu de width fixe */
+/* ✅ Responsive : taille adaptée à l'espace réel disponible */
 .wheel-wrapper{
   position:relative;
-  width:100%; max-width:550px;
+  width:100%; max-width:min(500px, 55vh);
   aspect-ratio:1;
-  margin: 0 auto;
+  margin: 20px auto 0;  /* 20px en haut pour le pointer */
 }
 
 canvas{
@@ -145,28 +145,52 @@ canvas{
 }
 
 .controls{
-  display:flex; gap:12px; align-items:center; flex-wrap:wrap; justify-content:center;
+  display:flex; gap:10px; align-items:center; flex-wrap:wrap; justify-content:center;
+  max-width:100%;
 }
 
 /* ✅ FIX : styles scopés aux boutons de la roue au lieu de global */
 .controls button{
-  padding:12px 32px; font-size:18px; border:0; border-radius:8px;
+  padding:10px 24px; font-size:16px; border:0; border-radius:8px;
   background:var(--accent); color:#fff; cursor:pointer; transition:background .2s;
 }
 .controls button:hover{ background:#ff3377; }
 .controls button:disabled{ opacity:.5; cursor:not-allowed; }
 
-.steam-buttons{ display:flex; gap:8px; flex-wrap:wrap; }
+.steam-buttons{ display:flex; gap:8px; flex-wrap:wrap; justify-content:center; }
 .steamBtn.active{ outline:2px solid #fff; }
-.wheel-result{ font-size:24px; font-weight:600; text-align:center; }
+.wheel-result{
+  font-size:clamp(18px, 3vw, 24px); font-weight:600; text-align:center;
+  transition: color .4s;
+  max-width:100%; padding:0 1rem;
+  word-break:break-word;
+}
+/* Couleur persistante du gagnant après l'animation */
+.wheel-result--has-winner{
+  color: var(--win-color, #fff);
+}
+
+/* 🗑️ Bouton retirer le gagnant */
+.remove-winner-btn{
+  padding:10px 20px; font-size:14px; border:0; border-radius:8px;
+  background:rgba(255,77,142,.15); color:#ff4d8e;
+  cursor:pointer; transition:background .2s, transform .15s;
+  display:inline-flex; align-items:center; gap:8px;
+  max-width:90%; text-align:center; white-space:normal;
+  word-break:break-word;
+}
+.remove-winner-btn:hover{
+  background:rgba(255,77,142,.3); transform:scale(1.03);
+}
 
 /* 🎉 Animation de victoire */
 .wheel-result--win{
-  font-size:32px;
+  font-size:clamp(22px, 4vw, 32px);
   color: var(--win-color, #ff4d8e);
   text-shadow: 0 0 20px var(--win-color, #ff4d8e), 0 0 40px var(--win-color, #ff4d8e);
   animation: winPulse .6s ease-in-out 3;
   display:flex; align-items:center; justify-content:center; gap:12px;
+  flex-wrap:wrap;
 }
 .win-text{
   animation: winScale .5s cubic-bezier(.17,.67,.29,1.4) forwards;
