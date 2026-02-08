@@ -1,5 +1,5 @@
 <script setup>
-import { onMounted, onBeforeUnmount, ref, watch } from 'vue'
+import { onMounted, onBeforeUnmount, ref, watch, computed } from 'vue'
 
 const props = defineProps({
   steamIds: { type: Array, required: true },
@@ -16,20 +16,22 @@ const spinning = ref(false)
 const loading  = ref(false)
 const showWin  = ref(false)
 const winColor = ref('')
-const winIndex = ref(-1)   // index du gagnant dans pattern
+const winIndex = ref(-1)
 
-const pattern = ref([])   // noms répétés selon amount
-const colors  = ref({})   // nom -> couleur
+const rawItems = ref([])       // données brutes de l'API [{name, amount, type}]
+const pattern = ref([])        // noms répétés selon amount (filtré)
+const colors  = ref({})        // nom -> couleur
 const currentSteamId = ref(props.steamIds?.[0] ?? '')
+const currentFilter  = ref('all')  // 'all' | 'case' | 'souvenir' | 'sticker'
 
 const size = 550
 let dpr = 1
 let rafId = 0
 
-// 🔊 Son de tick — Web Audio API (zéro fichier externe)
+// 🔊 Son de tick
 let audioCtx = null
 let lastTickTime = 0
-const MIN_TICK_INTERVAL = 45 // ms minimum entre deux ticks
+const MIN_TICK_INTERVAL = 45
 
 function initAudio() {
   if (audioCtx) return
@@ -39,39 +41,31 @@ function initAudio() {
 function playTick() {
   try {
     if (!audioCtx) return
-    // 🔊 Throttle : évite le spam quand il y a beaucoup de secteurs
     const now = performance.now()
     if (now - lastTickTime < MIN_TICK_INTERVAL) return
     lastTickTime = now
-
     if (audioCtx.state === 'suspended') audioCtx.resume()
     const t = audioCtx.currentTime
-
     const osc  = audioCtx.createOscillator()
     const gain = audioCtx.createGain()
     osc.connect(gain)
     gain.connect(audioCtx.destination)
-
-    // "Clac" sec de languette
     osc.type = 'square'
     osc.frequency.setValueAtTime(2200, t)
     osc.frequency.exponentialRampToValueAtTime(400, t + 0.04)
-
     gain.gain.setValueAtTime(0.4, t)
     gain.gain.exponentialRampToValueAtTime(0.001, t + 0.08)
-
     osc.start(t)
     osc.stop(t + 0.08)
   } catch { /* fail silently */ }
 }
 
-// 🎉 Son de victoire (petit jingle montant)
 function playWinSound() {
   try {
     if (!audioCtx) return
     if (audioCtx.state === 'suspended') audioCtx.resume()
     const t = audioCtx.currentTime
-    const notes = [523, 659, 784, 1047] // Do Mi Sol Do (octave)
+    const notes = [523, 659, 784, 1047]
     notes.forEach((freq, i) => {
       const osc  = audioCtx.createOscillator()
       const gain = audioCtx.createGain()
@@ -101,13 +95,46 @@ function generateColors(newNames){
   })
 }
 
+// Catégories disponibles dynamiquement selon les données
+const availableFilters = computed(() => {
+  const types = new Set(rawItems.value.map(i => i.type))
+  const filters = [{ value: 'all', label: 'Tout' }]
+  if (types.has('case'))     filters.push({ value: 'case',     label: 'Caisses' })
+  if (types.has('souvenir')) filters.push({ value: 'souvenir', label: 'Souvenirs' })
+  if (types.has('sticker'))  filters.push({ value: 'sticker',  label: 'Stickers' })
+  return filters
+})
+
+// Reconstruire le pattern quand le filtre change
+function applyFilter() {
+  const filtered = currentFilter.value === 'all'
+    ? rawItems.value
+    : rawItems.value.filter(item => item.type === currentFilter.value)
+
+  pattern.value = []
+  const newNames = []
+  filtered.forEach(item => {
+    if (!colors.value[item.name]) newNames.push(item.name)
+    for (let i = 0; i < (item.amount || 0); i++) {
+      pattern.value.push(item.name)
+    }
+  })
+  generateColors(newNames)
+  shufflePattern()
+
+  // Reset état du résultat
+  winIndex.value = -1
+  resultText.value = '—'
+  winColor.value = ''
+  rotation.value = 0
+}
+
 function setupHiDPI() {
   const canvas = canvasRef.value
   if (!canvas) return
   dpr = window.devicePixelRatio || 1
   canvas.width  = size * dpr
   canvas.height = size * dpr
-  // On ne force plus la taille inline → CSS gère le responsive
   ctx = canvas.getContext('2d')
   ctx.setTransform(1, 0, 0, 1, 0, 0)
   ctx.scale(dpr, dpr)
@@ -127,8 +154,6 @@ function drawWheel(angle = rotation.value){
     const val = pattern.value[i]
     const a0 = angle + i * ARC
     const a1 = a0 + ARC
-
-    // secteur
     ctx.beginPath()
     ctx.moveTo(r, r)
     ctx.arc(r, r, r - 14, a0, a1)
@@ -139,7 +164,6 @@ function drawWheel(angle = rotation.value){
     ctx.lineWidth = 1
     ctx.stroke()
 
-    // label
     ctx.save()
     ctx.translate(r, r)
     ctx.rotate(a0 + ARC / 2)
@@ -151,7 +175,6 @@ function drawWheel(angle = rotation.value){
   }
 }
 
-// Fisher-Yates
 function shufflePattern(){
   for (let i = pattern.value.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1))
@@ -164,7 +187,6 @@ function showResult(){
   const N = pattern.value.length
   if (!N) return
   const ARC = Math.PI * 2 / N
-  // pointeur en haut (-π/2)
   const angleUnderPointer =
     (2 * Math.PI - ((rotation.value + Math.PI/2) % (2 * Math.PI))) % (2 * Math.PI)
   const index = Math.floor(angleUnderPointer / ARC) % N
@@ -172,14 +194,11 @@ function showResult(){
   resultText.value = winner
   winIndex.value = index
   winColor.value = colors.value[winner] || '#ff4d8e'
-
-  // 🎉 Animation de victoire
   playWinSound()
   showWin.value = true
   setTimeout(() => { showWin.value = false }, 2500)
 }
 
-// 🗑️ Supprimer l'élément tiré de la roue
 function removeWinner() {
   if (winIndex.value < 0 || spinning.value) return
   pattern.value.splice(winIndex.value, 1)
@@ -190,7 +209,6 @@ function removeWinner() {
   drawWheel()
 }
 
-// 🔄 Recharger l'inventaire depuis le PHP
 function refresh() {
   if (spinning.value) return
   winIndex.value = -1
@@ -200,39 +218,32 @@ function refresh() {
   fetchInventory()
 }
 
-// ✅ FIX : interpolation start → target au lieu de 0 → target
 function spin(){
   if (spinning.value || pattern.value.length === 0) return
   spinning.value = true
   resultText.value = '—'
   winIndex.value = -1
   winColor.value = ''
-
-  // Init audio au clic utilisateur (obligatoire pour Chrome autoplay policy)
   initAudio()
 
   const N = pattern.value.length
   const ARC = Math.PI * 2 / N
-
   const start = rotation.value
   const extraDeg = Math.random() * 360
   const target = start
     + (Math.PI * 2 * (5 + Math.random() * 4))
     + (extraDeg * Math.PI / 180)
 
-  // 🔊 Compteur simple : combien de bordures de secteurs franchies depuis le départ
   let lastCrossing = Math.floor(start / ARC)
-
   const startT = performance.now()
   const DUR = 4500
 
   const animate = (t) => {
     const p = Math.min((t - startT) / DUR, 1)
-    const ease = 1 - Math.pow(1 - p, 3) // cubic ease-out
+    const ease = 1 - Math.pow(1 - p, 3)
     rotation.value = start + (target - start) * ease
     drawWheel(rotation.value)
 
-    // 🔊 Tick à chaque fois qu'on franchit une bordure de secteur
     const currentCrossing = Math.floor(rotation.value / ARC)
     if (currentCrossing !== lastCrossing) {
       playTick()
@@ -250,21 +261,6 @@ function spin(){
   rafId = requestAnimationFrame(animate)
 }
 
-// ✅ FIX : logique de parsing extraite pour éviter la duplication
-function loadInventory(data) {
-  pattern.value = []
-  const newNames = []
-  data.forEach(item => {
-    if (!colors.value[item.name]) newNames.push(item.name)
-    for (let i = 0; i < (item.amount || 0); i++) {
-      pattern.value.push(item.name)
-    }
-  })
-  generateColors(newNames)
-  shufflePattern()
-  drawWheel()
-}
-
 async function fetchInventory(){
   loading.value = true
   try {
@@ -272,14 +268,15 @@ async function fetchInventory(){
     const r = await fetch(url)
     const data = await r.json()
     if (!Array.isArray(data)) throw new Error('format inattendu')
-    loadInventory(data)
+    rawItems.value = data
+    applyFilter()
   } catch (e) {
     console.warn('fetchInventory échoué:', e)
-    // fallback facultatif via /public/mock_inventory.json
     try {
       const r2 = await fetch('/mock_inventory.json')
       const d2 = await r2.json()
-      loadInventory(d2)
+      rawItems.value = d2
+      applyFilter()
     } catch {/* ignore */}
   } finally {
     loading.value = false
@@ -292,7 +289,6 @@ function switchId(id){
   rotation.value = 0
 }
 
-// Utilise les labels passés par le parent si présents, sinon "Inventaire n"
 function labelFor(id){
   const idx = props.steamIds.indexOf(id)
   if (idx >= 0 && props.labels[idx]) return props.labels[idx]
@@ -318,6 +314,7 @@ onBeforeUnmount(() => {
 })
 
 watch(currentSteamId, () => fetchInventory())
+watch(currentFilter, () => applyFilter())
 </script>
 
 <template>
@@ -325,7 +322,6 @@ watch(currentSteamId, () => fetchInventory())
     <div class="wheel-wrapper">
       <canvas ref="canvasRef" aria-label="Roue de la fortune"></canvas>
       <div class="pointer"></div>
-      <!-- ✅ Indicateur de chargement -->
       <div v-if="loading" class="wheel-loading">
         <i class="fas fa-spinner fa-spin"></i> Chargement…
       </div>
@@ -346,6 +342,17 @@ watch(currentSteamId, () => fetchInventory())
       >
         <option v-for="id in steamIds" :key="id" :value="id">
           {{ labelFor(id) }}
+        </option>
+      </select>
+
+      <select
+        v-if="availableFilters.length > 1"
+        class="steam-select"
+        v-model="currentFilter"
+        :disabled="spinning"
+      >
+        <option v-for="f in availableFilters" :key="f.value" :value="f.value">
+          {{ f.label }}
         </option>
       </select>
     </div>
