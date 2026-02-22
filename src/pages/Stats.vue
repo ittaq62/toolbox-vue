@@ -1,6 +1,6 @@
 <template>
   <div class="box">
-    <h2>Stats</h2>
-    <p>Ici, tu pourras afficher des indicateurs plus tard.</p>
+    <h2>Statistiques</h2>
+    <p>Contenu à venir.</p>
   </div>
 </template>

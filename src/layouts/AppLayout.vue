@@ -6,7 +6,7 @@ const isCollapsed = ref(false)
 const toggleSidebar = () => { isCollapsed.value = !isCollapsed.value }
 
 const route = useRoute()
-const pageTitle = computed(() => route.meta?.title ?? 'Outil Roue')
+const pageTitle = computed(() => route.meta?.title ?? 'Toolbox')
 </script>
 
 <template>
